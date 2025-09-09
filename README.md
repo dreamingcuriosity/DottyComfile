@@ -10,3 +10,4 @@ main.c
 string.c
 
 After you create the file run the python file and compile the files using make (simple right? ) 
+If it's when running means your ready to run make
