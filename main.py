@@ -1,39 +1,67 @@
-from datetime import datetime
-import glob
+#!/usr/bin/env python3
 import os
+import re
+import argparse
 
-def detect_language_and_sources():
-    """Detect programming language and source files in current directory and subdirectories"""
-    # Use recursive=True to search subdirectories
-    if glob.glob("**/*.c", recursive=True):
-        sources = glob.glob("**/*.c", recursive=True)
-        objects = [f.replace('.c', '.o') for f in sources]
-        return "c", sources, objects
-    elif (glob.glob("**/*.cpp", recursive=True) or 
-          glob.glob("**/*.cxx", recursive=True) or 
-          glob.glob("**/*.cc", recursive=True) or 
-          glob.glob("**/*.C", recursive=True)):
-        cpp_sources = (glob.glob("**/*.cpp", recursive=True) + 
-                      glob.glob("**/*.cxx", recursive=True) + 
-                      glob.glob("**/*.cc", recursive=True) + 
-                      glob.glob("**/*.C", recursive=True))
-        cpp_objects = []
-        for f in cpp_sources:
-            obj = f.rsplit('.', 1)[0] + '.o'
-            cpp_objects.append(obj)
-        return "c++", cpp_sources, cpp_objects
-    elif glob.glob("**/*.m", recursive=True) or glob.glob("**/*.mm", recursive=True):
-        objc_sources = glob.glob("**/*.m", recursive=True) + glob.glob("**/*.mm", recursive=True)
-        objc_objects = []
-        for f in objc_sources:
-            obj = f.rsplit('.', 1)[0] + '.o'
-            objc_objects.append(obj)
-        return "objective-c", objc_sources, objc_objects
-    elif glob.glob("**/*.go", recursive=True):
-        sources = glob.glob("**/*.go", recursive=True)
-        objects = [os.path.basename(f).replace('.go', '') for f in sources]
-        return "go", sources, objects
-    elif glob.glob("**/Cargo.toml", recursive=True):
+def find_source_files():
+    sources = []
+    for root, _, files in os.walk("."):
+        for f in files:
+            if f.endswith(".c"):
+                sources.append(os.path.join(root, f))
+    return sources
+
+def detect_main_file(sources):
+    main_candidates = []
+    for src in sources:
+        try:
+            with open(src, "r", errors="ignore") as f:
+                code = f.read()
+                if re.search(r"\bint\s+main\s*\(", code):  # naive but works
+                    main_candidates.append(src)
+        except:
+            pass
+    return main_candidates
+
+def main():
+    parser = argparse.ArgumentParser(description="Auto Makefile generator")
+    parser.add_argument("-m", "--magic", action="store_true",
+                        help="Autodetect main() and set target name automatically")
+    args = parser.parse_args()
+
+    sources = find_source_files()
+    print(f"Detected c project with {len(sources)} source files:")
+    for s in sources:
+        print(f"  - {s}")
+
+    if args.magic:
+        mains = detect_main_file(sources)
+        if len(mains) == 0:
+            print("No main() found, falling back to a.out")
+            target = "a.out"
+        elif len(mains) == 1:
+            target = os.path.splitext(os.path.basename(mains[0]))[0]
+            print(f"Magic mode: found main() in {mains[0]}")
+            print(f"Target set to: {target}")
+        else:
+            print("Multiple files with main() detected:")
+            for i, m in enumerate(mains, 1):
+                print(f"  {i}. {m}")
+            choice = input("Choose which to use: ")
+            try:
+                idx = int(choice) - 1
+                target = os.path.splitext(os.path.basename(mains[idx]))[0]
+            except:
+                target = "a.out"
+                print("Invalid choice, defaulting to a.out")
+    else:
+        target = input("Enter the target executable name (default: a.out): ") or "a.out"
+
+    print(f"Final target: {target}")
+    # 🔮 generate makefile here using `sources` + `target`
+
+if __name__ == "__main__":
+    main()
         return "rust", ["Cargo.toml"], ["target/release/*"]
     elif glob.glob("**/*.rs", recursive=True):
         sources = glob.glob("**/*.rs", recursive=True)
