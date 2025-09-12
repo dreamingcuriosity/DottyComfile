@@ -1,7 +1,7 @@
 name: Deploy Python app to Azure Web App
 
 env:
-  AZURE_WEBAPP_NAME: mato
+  AZURE_WEBAPP_NAME: DottyComfile
   PYTHON_VERSION: '3.8'
 
 on:
