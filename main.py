@@ -4,6 +4,7 @@ import os
 import fnmatch
 from pathlib import Path
 import re
+import platform  # Add this import
 
 
 def load_comignore():
@@ -216,7 +217,7 @@ def generate_makefile(language, sources, objects):
     with open("makefile", "w") as f:
         size_bytes = os.path.getsize(__file__)
         size_kb = (size_bytes + 1023) // 1024  # round up to whole KB
-        
+
         # Header
         f.write("# =====================================================\n")
         f.write("# Auto-generated Makefile by main.py\n")
@@ -291,6 +292,168 @@ def generate_makefile(language, sources, objects):
             f.write("\t$(CC) $(OBJECTS) -o $(TARGET)\n")
         elif language == "go":
             f.write("$(TARGET): $(SOURCES)\n")
+            f.write('\t@echo "$(BOLD)$(GREEN)Building Go project...$(RESET)"\n')
+            f.write("\t$(CC) -o $(TARGET)\n")
+        elif language == "rust":
+            if compiler == "cargo":
+                f.write("$(TARGET): $(SOURCES)\n")
+                f.write(
+                    '\t@echo "$(BOLD)$(GREEN)Building Rust project with Cargo...$(RESET)"\n'
+                )
+                f.write("\t$(CC)\n")
+                f.write(f"\tcp target/release/{target} .\n")
+            else:
+                f.write("$(TARGET): $(SOURCES)\n")
+                f.write('\t@echo "$(BOLD)$(GREEN)Building Rust project...$(RESET)"\n')
+                f.write("\t$(CC) $(SOURCES)\n")
+        f.write('\t@echo "$(BOLD)$(CYAN)✓ Successfully built $(TARGET)$(RESET)"\n\n')
+
+        # Object rules for C/C++/ObjC
+        if language in ["c", "c++", "objective-c"]:
+            for src in sources:
+                obj = src.rsplit(".", 1)[0] + ".o"
+                f.write(f"{obj}: {src}\n")
+                f.write(f'\t@echo "$(BOLD)$(YELLOW)Compiling {src}...$(RESET)"\n')
+                # Create directory for object file if it doesn't exist
+                obj_dir = os.path.dirname(obj)
+                if obj_dir:
+                    f.write(f"\t@mkdir -p {obj_dir}\n")
+                f.write(f"\t$(CC) -c {src} -o {obj}\n")
+                f.write(f'\t@echo "$(GREEN)✓ Compiled {obj}$(RESET)"\n\n')
+
+        # Clean - FIXED WITH PLATFORM DETECTION
+        current_os = platform.system().lower()
+        
+        f.write("clean:\n")
+        f.write('\t@echo "$(BOLD)$(RED)Cleaning up...$(RESET)"\n')
+        
+        if current_os == "windows":
+            # Windows commands
+            if language in ["c", "c++", "objective-c"]:
+                f.write(f"\tdel /q {target} {' '.join(objects)} 2>nul\n")
+            elif language == "go":
+                f.write(f"\tdel /q {target} 2>nul\n")
+            elif language == "rust" and compiler != "cargo":
+                f.write(f"\tdel /q {target} {' '.join(objects)} 2>nul\n")
+        else:
+            # Unix/Linux commands (Termux, macOS, etc.)
+            if language in ["c", "c++", "objective-c"]:
+                f.write(f"\trm -f {target} {' '.join(objects)}\n")
+            elif language == "go":
+                f.write(f"\trm -f {target}\n")
+            elif language == "rust" and compiler != "cargo":
+                f.write(f"\trm -f {target} {' '.join(objects)}\n")
+
+        if language == "rust" and compiler == "cargo":
+            f.write("\tcargo clean\n")
+            if current_os == "windows":
+                f.write(f"\tdel /q {target} 2>nul\n")
+            else:
+                f.write(f"\trm -f {target}\n")
+
+        f.write('\t@echo "$(CYAN)✓ Clean complete$(RESET)"\n\n')
+
+        # Help
+        f.write("help:\n")
+        f.write('\t@echo "$(BOLD)$(MAGENTA)Available targets:$(RESET)"\n')
+        f.write('\t@echo "  $(YELLOW)$(TARGET)$(RESET) - Build the main executable"\n')
+        f.write('\t@echo "  $(YELLOW)clean$(RESET) - Remove all built files"\n')
+        f.write('\t@echo "  $(YELLOW)help$(RESET)  - Show this help message"\n\n')
+
+        f.write(".DEFAULT_GOAL := help\n")
+        if (
+            language in ["c", "c++", "objective-c"]
+            and "obj_dirs" in locals()
+            and obj_dirs
+        ):
+            f.write(".PHONY: clean help directories\n")
+        else:
+            f.write(".PHONY: clean help\n")
+
+
+if __name__ == "__main__":
+    # Check if .comignore exists, if not create a sample one
+    if not os.path.exists(".comignore"):
+        print("No .comignore file found. Creating a sample .comignore file...")
+        with open(".comignore", "w") as f:
+            f.write(
+                """# DottyComfile ignore patterns (similar to .gitignore)
+# Lines starting with # are comments
+# Patterns support wildcards: * ? [abc]
+# Directory patterns should end with /
+
+# Build directories
+build/
+target/
+CMakeFiles/
+.cmake/
+
+# Package managers and dependencies
+pkg/mod/
+go/pkg/
+node_modules/
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled objects and executables
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+a.out
+
+# Backup and temporary files
+*.bak
+*.tmp
+*.temp
+*~
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and example directories (customize as needed)
+test/
+tests/
+examples/
+samples/
+
+# Add your custom patterns below:
+
+"""
+            )
+        print("Created .comignore file. You can edit it to customize ignore patterns.")
+        print("Re-run the script after editing .comignore if needed.")
+
+    language, sources, objects = detect_language_and_sources()
+
+    if language == "unknown":
+        print("Error: No supported source files found.")
+        print(
+            "Supported languages: C (.c), C++ (.cpp, .cxx, .cc, .C), Objective-C (.m, .mm), Go (.go), Rust (.rs or Cargo.toml)"
+        )
+        exit(1)
+
+    print(f"Detected {language} project with {len(sources)} source files:")
+    for src in sources:
+        print(f"  - {src}")
+    print()
+
+    generate_makefile(language, sources, objects)
+URCES)\n")
             f.write('\t@echo "$(BOLD)$(GREEN)Building Go project...$(RESET)"\n')
             f.write("\t$(CC) -o $(TARGET)\n")
         elif language == "rust":
