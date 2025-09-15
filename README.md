@@ -23,6 +23,6 @@ Automatically detects your source files and generates a ready-to-use Makefile—
 python3 main.py
 
 # Follow prompts to set target executable & compiler flags
-make          # Build the project
+make programname         # Build the project
 make clean    # Remove built files
 make help     # Show available targets
