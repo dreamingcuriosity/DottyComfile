@@ -2,7 +2,7 @@
 
 **Tiny, zero-config buildfile generator for C, C++, Objective-C, Go, and Rust projects.**
 
-![Python](https://img.shields.io/badge/python-3.6%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Cross-platform](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-lightgrey)
+![Python](https://img.shields.io/badge/python-3.6%2B-yellow) ![License](https://img.shields.io/badge/license-MIT-black) ![Cross-platform](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-lightgrey) ![Date](https://img.shields.io/badge/released%20on-9%2F18%2F25-orange)
 
 ---
 
